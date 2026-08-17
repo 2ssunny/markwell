@@ -1,0 +1,11 @@
+{
+    "NOTION_API_KEY": "YOUR_NOTION_INTEGRATION_TOKEN_HERE",
+    "NOTION_DATABASE_ID": "YOUR_NOTION_DATABASE_ID_HERE",
+    "OCR_LANG": "eng+kor",
+    "ENABLE_DRIVE": true,
+    "ENABLE_NOTION": true,
+    "DRIVE_FOLDER_NAME": "mdconversion",
+    "INPUT_DIR": "",
+    "PROCESSED_DIR": "",
+    "OUTPUT_DIR": ""
+}

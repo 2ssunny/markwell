@@ -1,0 +1,23 @@
+# Conversion engines
+# pdf-inspector  -- PDFs: classification + layout-aware Markdown, no OCR of its own
+# firecrawl-anydoc -- Word/PowerPoint/Excel/OpenDocument/RTF/EPUB/CSV
+# markitdown     -- everything else (html, zip, json, xml, txt, images)
+pdf-inspector
+firecrawl-anydoc
+markitdown[all]
+
+# OCR (scanned PDF pages only)
+PyMuPDF
+pytesseract
+Pillow
+
+# GUI
+PySide6
+
+# Google Drive
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# Notion
+notion-client
