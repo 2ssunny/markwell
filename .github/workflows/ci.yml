@@ -1,0 +1,70 @@
+name: CI
+
+# Runs on every PR and on merges into the release branches. Deliberately does
+# not build the exe -- that takes ~5 minutes and 468MB, and lives in
+# release.yml behind a tag. This job is the one that has to stay fast enough
+# that nobody is tempted to merge without it.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    env:
+      # No display on a runner; PySide6 widgets still construct under this.
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.13, not 3.14: every real markitdown release caps at <3.14 and pip
+          # silently falls back to the empty 0.0.2 placeholder above that.
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+
+      - name: Verify the installed markitdown is real
+        shell: pwsh
+        # pip resolving down to the 0.0.2 placeholder is silent and would leave
+        # the html/zip/txt/image route dead while every test still passed.
+        run: |
+          $v = python -c "import markitdown; from importlib.metadata import version; print(version('markitdown'))"
+          Write-Host "markitdown $v"
+          if ([version]($v -replace '[^0-9.].*$','') -lt [version]'0.1.0') {
+            throw "markitdown resolved to the $v placeholder -- check the Python version"
+          }
+
+      - name: Run tests
+        run: python -m pytest -q --junitxml=junit.xml
+
+      - name: Publish test summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path junit.xml) {
+            [xml]$r = Get-Content junit.xml
+            $s = $r.testsuites.testsuite
+            "### Tests`n`n| total | failures | errors | skipped | time |`n|---|---|---|---|---|`n| $($s.tests) | $($s.failures) | $($s.errors) | $($s.skipped) | $($s.time)s |" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: junit.xml
+          retention-days: 7

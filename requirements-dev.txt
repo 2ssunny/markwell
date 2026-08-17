@@ -2,3 +2,6 @@
 
 # Packaging the GUI into a distributable exe
 pyinstaller
+
+# Test suite
+pytest
