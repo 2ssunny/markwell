@@ -93,6 +93,11 @@ jobs:
         run: |
           $tag = $env:GITHUB_REF -replace "refs/tags/", ""
           if (-not (gh release view $tag 2>$null)) {
-            gh release create $tag --title $tag --generate-notes
+            # A semver prerelease always carries a hyphen (v2.0.0-rc.1), so the
+            # tag alone says whether this should be flagged as one. Without the
+            # flag an rc publishes as the latest stable release.
+            $args = @($tag, "--title", $tag, "--generate-notes")
+            if ($tag -match '-') { $args += "--prerelease" }
+            gh release create @args
           }
           gh release upload $tag $env:ZIP_NAME --clobber
