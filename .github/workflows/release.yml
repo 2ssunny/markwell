@@ -48,11 +48,26 @@ jobs:
         shell: pwsh
         # A green build is not proof the bundle works -- missing hidden imports
         # and DLLs only surface when the frozen app actually runs.
+        #
+        # The release exe is built windowed (no console), and PowerShell does
+        # not wait on a GUI-subsystem process launched with `&` -- it returns
+        # immediately, leaving $LASTEXITCODE unset. Start-Process -Wait is the
+        # only way to get a real exit code here.
         run: |
           "hello from CI" | Set-Content ci_note.txt -Encoding utf8
           "<h1>Title</h1><p>body</p>" | Set-Content ci_page.html -Encoding utf8
-          & ./dist/Markwell/Markwell.exe --selftest ci_note.txt ci_page.html
-          if ($LASTEXITCODE -ne 0) { throw "selftest failed with $LASTEXITCODE" }
+          $p = Start-Process -FilePath ./dist/Markwell/Markwell.exe `
+                 -ArgumentList '--selftest','ci_note.txt','ci_page.html' `
+                 -Wait -PassThru -NoNewWindow `
+                 -RedirectStandardOutput selftest.out -RedirectStandardError selftest.err
+          $out = (Get-Content selftest.out, selftest.err -ErrorAction SilentlyContinue) -join "`n"
+          Write-Host $out
+          if ($p.ExitCode -ne 0) { throw "selftest exited with $($p.ExitCode)" }
+          # Exit code alone is weak evidence for a windowed binary; require the
+          # success line and confirm OCR resolved out of the bundle.
+          if ($out -notmatch 'selftest OK') { throw "selftest did not report success" }
+          if ($out -notmatch 'resources.tesseract.tesseract\.exe') { throw "bundled Tesseract was not resolved" }
+          if ($out -notmatch 'engine=markitdown') { throw "conversion engine did not run" }
 
       - name: Package
         shell: pwsh
