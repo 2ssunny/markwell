@@ -135,6 +135,21 @@ If you want to build the standalone Windows executable from source:
    ```powershell
    powershell -ExecutionPolicy Bypass -File packaging/build.ps1
    ```
+
+### Releases
+
+Pushing a `v*` tag builds the app on a Windows runner and attaches
+`Markwell-<version>-win64.zip` to the matching GitHub release, creating the
+release if it does not exist yet:
+
+```bash
+git tag v2.0.0 && git push origin v2.0.0
+```
+
+The same workflow can be run manually from the Actions tab to exercise the
+packaging without tagging — that path uploads the zip as a run artifact instead.
+Either way the frozen exe is smoke-tested with `--selftest` before upload, since
+missing hidden imports and DLLs only show up when the packaged app actually runs.
    Output: `dist/Markwell/Markwell.exe` (onedir build with dependencies alongside).
 
 ## Data Storage

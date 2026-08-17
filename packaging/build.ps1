@@ -31,6 +31,12 @@ $python = Join-Path $env:USERPROFILE "anaconda3\envs\markwell\python.exe"
 if (-not (Test-Path $python)) {
     $python = Join-Path $repoRoot "venv\Scripts\python.exe"
 }
+if (-not (Test-Path $python)) {
+    # CI has neither; setup-python puts a python.org build on PATH, which has
+    # none of the Anaconda DLL conflicts the conda env exists to avoid.
+    $onPath = Get-Command python -ErrorAction SilentlyContinue
+    if ($onPath) { $python = $onPath.Source }
+}
 
 if (-not (Test-Path $python)) {
     Write-Host "No Python environment found." -ForegroundColor Red

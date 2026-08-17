@@ -1,0 +1,83 @@
+name: Release
+
+# Tagging v* publishes a build. workflow_dispatch is there so the packaging can
+# be exercised without minting a tag -- it uploads the zip as a run artifact
+# instead of creating a release.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.13, not 3.14: every real markitdown release caps at <3.14 and pip
+          # silently falls back to the empty 0.0.2 placeholder above that.
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
+
+      - name: Install Tesseract OCR
+        run: choco install tesseract --no-progress -y
+
+      - name: Vendor the portable Tesseract runtime
+        shell: pwsh
+        # resources/tesseract is gitignored (~68MB of third-party binaries), so
+        # the runtime is lifted out of the freshly installed copy at build time.
+        run: |
+          $installed = "C:\Program Files\Tesseract-OCR"
+          if (-not (Test-Path $installed)) { $installed = "C:\ProgramData\chocolatey\lib\tesseract\tools" }
+          ./scripts/vendor_tesseract.ps1 -Source $installed
+
+      - name: Build
+        shell: pwsh
+        run: ./packaging/build.ps1
+
+      - name: Smoke-test the packaged exe
+        shell: pwsh
+        # A green build is not proof the bundle works -- missing hidden imports
+        # and DLLs only surface when the frozen app actually runs.
+        run: |
+          "hello from CI" | Set-Content ci_note.txt -Encoding utf8
+          "<h1>Title</h1><p>body</p>" | Set-Content ci_page.html -Encoding utf8
+          & ./dist/Markwell/Markwell.exe --selftest ci_note.txt ci_page.html
+          if ($LASTEXITCODE -ne 0) { throw "selftest failed with $LASTEXITCODE" }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF -like "refs/tags/*") { $env:GITHUB_REF -replace "refs/tags/", "" } else { "dev-$($env:GITHUB_SHA.Substring(0,7))" }
+          $zip = "Markwell-$version-win64.zip"
+          Compress-Archive -Path dist/Markwell/* -DestinationPath $zip -CompressionLevel Optimal
+          "ZIP_NAME=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "{0} ({1:N0} MB)" -f $zip, ((Get-Item $zip).Length / 1MB)
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 14
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF -replace "refs/tags/", ""
+          if (-not (gh release view $tag 2>$null)) {
+            gh release create $tag --title $tag --generate-notes
+          }
+          gh release upload $tag $env:ZIP_NAME --clobber
