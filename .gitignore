@@ -5,15 +5,30 @@ __pycache__/
 # Google Drive Credentials
 app/credentials.json
 app/token.json
+markwell/credentials.json
+markwell/token.json
 
 # Local processing folders
 input_files/
 processed_files/
+output_files/
 app/history.json
 
 # Config file containing API keys
 app/config.json
 
-# Local project documentation and models
+# Local project documentation
 project_log.md
+
+# resources/tessdata_best holds the committed eng/kor/osd seed. At runtime the
+# app copies it into a writable location -- app/ when run from source,
+# %LOCALAPPDATA% when packaged -- and downloads any extra OCR_LANG models there.
 app/tessdata_best/
+
+# Vendored third-party binaries (~68MB) -- fetched by scripts/vendor_tesseract.ps1
+resources/tesseract/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec.bak

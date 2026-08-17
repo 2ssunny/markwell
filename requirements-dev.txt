@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Packaging the GUI into a distributable exe
+pyinstaller
